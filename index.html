@@ -55,21 +55,44 @@ let streamActive = false;
 // Voice Engine Tracking variables
 let lastAnnouncedHouse = "";
 let speechTimeout = null;
+let britishVoice = null;
+
+// Dynamic Sorting Hat lines
+const introPhrases = [
+    "Right then... ",
+    "Ah, yes. I see it clearly... ",
+    "A keen mind, let's see... ",
+    "Difficult, very difficult... ",
+    "There's no doubt about it... ",
+    "Where to put you... Ah! ",
+    "Better be... "
+];
+
+// Load voices when they are ready (crucial for Chrome and mobile browsers)
+function loadVoices() {
+    if ('speechSynthesis' in window) {
+        let voices = window.speechSynthesis.getVoices();
+        // Try to find a British English voice (en-GB)
+        britishVoice = voices.find(voice => voice.lang.includes('en-GB') || voice.lang.includes('en_GB'));
+    }
+}
+
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+}
 
 // Event listener to catch the mandatory physical user gesture
 document.getElementById('startBtn').addEventListener('click', function() {
-    // 1. Instantly trigger a silent utterance to trick the mobile browser into unlocking audio
     if ('speechSynthesis' in window) {
         let unlockUtterance = new SpeechSynthesisUtterance('');
         window.speechSynthesis.speak(unlockUtterance);
     }
 
-    // 2. Adjust visibility of structural components
     this.style.display = 'none';
     document.getElementById('status').style.display = 'block';
     document.getElementById('videoContainer').style.display = 'block';
 
-    // 3. Fire up the camera now that we are trusted
     initLiveScanner();
 });
 
@@ -105,16 +128,26 @@ async function initLiveScanner() {
     });
 }
 
-// Custom Text-To-Speech Function
+// Upgraded Text-To-Speech Function with British Accent & Random Intros
 function speakHouse(houseName) {
     if (houseName === lastAnnouncedHouse) return;
     
     window.speechSynthesis.cancel();
     
-    let phrase = new SpeechSynthesisUtterance(`Better be... ${houseName}!`);
+    // Grab a random sorting line from our array
+    let randomIntro = introPhrases[Math.floor(Math.random() * introPhrases.length)];
     
-    phrase.rate = 0.85; 
-    phrase.pitch = 0.9; 
+    // Construct the full sentence (e.g., "Ah, yes. I see it clearly... GRYFFINDOR!")
+    let phrase = new SpeechSynthesisUtterance(`${randomIntro} ${houseName}!`);
+    
+    // Apply the British voice if the device supports/has it loaded
+    if (britishVoice) {
+        phrase.voice = britishVoice;
+    }
+    
+    // Sorting Hat pacing adjustments
+    phrase.rate = 0.82; 
+    phrase.pitch = 0.85; 
     
     window.speechSynthesis.speak(phrase);
     lastAnnouncedHouse = houseName;
