@@ -54,10 +54,17 @@ let streamActive = false;
 
 // Voice Engine Tracking variables
 let lastAnnouncedHouse = "";
-let speechTimeout = null;
 let britishVoice = null;
 
-// Dynamic Sorting Hat lines
+// Timing Control Configuration
+let sheetsEmptyCounter = 0; 
+const RESET_DELAY_FRAMES = 60; // 2 seconds of blank space to trigger a reset
+
+// NEW: Stabilization Control variables
+let scanConfidenceCounter = 0;
+const STABLE_SCAN_FRAMES = 30; // Paper must be fully visible & completely still for 1 second (30 frames) before it triggers
+let potentialWinner = "";
+
 const introPhrases = [
     "Right then... ",
     "Ah, yes. I see it clearly... ",
@@ -68,11 +75,9 @@ const introPhrases = [
     "Better be... "
 ];
 
-// Load voices when they are ready (crucial for Chrome and mobile browsers)
 function loadVoices() {
     if ('speechSynthesis' in window) {
         let voices = window.speechSynthesis.getVoices();
-        // Try to find a British English voice (en-GB)
         britishVoice = voices.find(voice => voice.lang.includes('en-GB') || voice.lang.includes('en_GB'));
     }
 }
@@ -82,7 +87,6 @@ if ('speechSynthesis' in window) {
     loadVoices();
 }
 
-// Event listener to catch the mandatory physical user gesture
 document.getElementById('startBtn').addEventListener('click', function() {
     if ('speechSynthesis' in window) {
         let unlockUtterance = new SpeechSynthesisUtterance('');
@@ -128,24 +132,24 @@ async function initLiveScanner() {
     });
 }
 
-// Upgraded Text-To-Speech Function with British Accent & Random Intros
 function speakHouse(houseName) {
     if (houseName === lastAnnouncedHouse) return;
     
     window.speechSynthesis.cancel();
     
-    // Grab a random sorting line from our array
     let randomIntro = introPhrases[Math.floor(Math.random() * introPhrases.length)];
     
-    // Construct the full sentence (e.g., "Ah, yes. I see it clearly... GRYFFINDOR!")
-    let phrase = new SpeechSynthesisUtterance(`${randomIntro} ${houseName}!`);
+    let spokenHouseName = houseName;
+    if (houseName.toLowerCase() === "slytherin") {
+        spokenHouseName = "Slith-er-in"; 
+    }
     
-    // Apply the British voice if the device supports/has it loaded
+    let phrase = new SpeechSynthesisUtterance(`${randomIntro} ${spokenHouseName}!`);
+    
     if (britishVoice) {
         phrase.voice = britishVoice;
     }
     
-    // Sorting Hat pacing adjustments
     phrase.rate = 0.82; 
     phrase.pitch = 0.85; 
     
@@ -182,6 +186,8 @@ function processFrame() {
         }
     }
 
+    let validSheetFound = false; 
+
     if (boxes.length >= 5) {
         boxes.sort((a, b) => a.rect.y - b.rect.y);
         
@@ -204,6 +210,9 @@ function processFrame() {
         rows = rows.slice(-5); 
 
         if (rows.length === 5) {
+            validSheetFound = true; 
+            sheetsEmptyCounter = 0;  
+            
             const houses = ["Gryffindor", "Ravenclaw", "Hufflepuff", "Slytherin"];
             const colLetters = ["A", "B", "C", "D"];
             let tally = { Gryffindor: 0, Ravenclaw: 0, Hufflepuff: 0, Slytherin: 0 };
@@ -214,6 +223,7 @@ function processFrame() {
                 let chosenIndex = -1;
 
                 row.forEach((box, colIndex) => {
+                    // Draw boxes in real-time so kids can align the paper
                     ctx.strokeStyle = box.fillRatio > 0.38 ? '#FF0000' : '#00FF00';
                     ctx.lineWidth = box.fillRatio > 0.38 ? 4 : 2;
                     ctx.strokeRect(box.rect.x, box.rect.y, box.rect.width, box.rect.height);
@@ -228,28 +238,58 @@ function processFrame() {
                     let house = houses[chosenIndex];
                     let points = (rowIndex === 4) ? 1.1 : 1.0; 
                     tally[house] += points;
-                    
                     diagnosisText += `Q${rowIndex+1}: Choice ${colLetters[chosenIndex]} (${house}) [${points} pts]<br>`;
                 }
             });
 
             let totalScore = Object.values(tally).reduce((a, b) => a + b, 0);
             if (totalScore > 0) {
-                let winner = Object.keys(tally).reduce((a, b) => tally[a] >= tally[b] ? a : b);
+                let currentWinner = Object.keys(tally).reduce((a, b) => tally[a] >= tally[b] ? a : b);
                 
-                let banner = document.getElementById('winnerBanner');
-                banner.className = `house-banner ${winner}`;
-                banner.innerHTML = `LIVE SORTING: ${winner.toUpperCase()}!`;
-                banner.style.display = 'block';
+                // NEW: Check if the paper has stopped moving and is showing the same winner
+                if (currentWinner === potentialWinner) {
+                    scanConfidenceCounter++;
+                    
+                    // Show kids a loading/analyzing status while they wait 1 second
+                    if (lastAnnouncedHouse === "") {
+                        document.getElementById('status').innerText = `🔮 Analyzing sheet... Hold still! (${Math.round((scanConfidenceCounter/STABLE_SCAN_FRAMES)*100)}%)`;
+                    }
+                } else {
+                    // Reset if the house calculation flips while paper is moving
+                    potentialWinner = currentWinner;
+                    scanConfidenceCounter = 0;
+                }
 
-                // TRIGGER THE SPEECH SYNTH ENGINE 
-                speakHouse(winner);
+                // NEW: Only trigger banners and speech after a stable 1-second hold
+                if (scanConfidenceCounter >= STABLE_SCAN_FRAMES) {
+                    let banner = document.getElementById('winnerBanner');
+                    banner.className = `house-banner ${currentWinner}`;
+                    banner.innerHTML = `LIVE SORTING: ${currentWinner.toUpperCase()}!`;
+                    banner.style.display = 'block';
 
-                let standingsText = `Current Math: G: ${tally.Gryffindor.toFixed(1)} | R: ${tally.Ravenclaw.toFixed(1)} | H: ${tally.Hufflepuff.toFixed(1)} | S: ${tally.Slytherin.toFixed(1)}`;
-                document.getElementById('standings').innerHTML = standingsText;
-                document.getElementById('breakdown').innerHTML = diagnosisText;
-                document.getElementById('detailsCard').style.display = 'block';
+                    speakHouse(currentWinner);
+
+                    let standingsText = `Current Math: G: ${tally.Gryffindor.toFixed(1)} | R: ${tally.Ravenclaw.toFixed(1)} | H: ${tally.Hufflepuff.toFixed(1)} | S: ${tally.Slytherin.toFixed(1)}`;
+                    document.getElementById('standings').innerHTML = standingsText;
+                    document.getElementById('breakdown').innerHTML = diagnosisText;
+                    document.getElementById('detailsCard').style.display = 'block';
+                    document.getElementById('status').innerText = "✅ Sorting Complete!";
+                }
             }
+        }
+    }
+
+    if (!validSheetFound) {
+        sheetsEmptyCounter++;
+        // If the sheet moves out of sight, drop the initialization counters back down
+        scanConfidenceCounter = 0;
+        potentialWinner = "";
+        
+        if (sheetsEmptyCounter >= RESET_DELAY_FRAMES) {
+            lastAnnouncedHouse = ""; 
+            document.getElementById('winnerBanner').style.display = 'none';
+            document.getElementById('detailsCard').style.display = 'none';
+            document.getElementById('status').innerText = "🔮 Ready for the next student's sheet...";
         }
     }
 
