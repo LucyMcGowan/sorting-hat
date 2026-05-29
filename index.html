@@ -47,6 +47,10 @@ const ctx = canvas.getContext('2d');
 let src, gray, thresh, contours, hierarchy;
 let streamActive = false;
 
+// Voice Engine Tracking variables
+let lastAnnouncedHouse = "";
+let speechTimeout = null;
+
 async function initLiveScanner() {
     document.getElementById('status').innerText = "🎥 Requesting live video permissions...";
     try {
@@ -77,6 +81,24 @@ async function initLiveScanner() {
             requestAnimationFrame(processFrame);
         }
     });
+}
+
+// Custom Text-To-Speech Function
+function speakHouse(houseName) {
+    // If we already screamed this house, don't scream it again immediately
+    if (houseName === lastAnnouncedHouse) return;
+    
+    // Stop any current voice lines playing so they don't stack up overlap noise
+    window.speechSynthesis.cancel();
+    
+    let phrase = new SpeechSynthesisUtterance(`Better be... ${houseName}!`);
+    
+    // Let's give it a slightly slower, deeper, dramatic Sorting Hat pacing
+    phrase.rate = 0.85; 
+    phrase.pitch = 0.9; 
+    
+    window.speechSynthesis.speak(phrase);
+    lastAnnouncedHouse = houseName;
 }
 
 function processFrame() {
@@ -152,7 +174,6 @@ function processFrame() {
 
                 if (chosenIndex !== -1 && row.length === 4) {
                     let house = houses[chosenIndex];
-                    // TIEBREAKER RULE: Upweight the 5th question (index 4) to 1.1 points
                     let points = (rowIndex === 4) ? 1.1 : 1.0; 
                     tally[house] += points;
                     
@@ -169,7 +190,9 @@ function processFrame() {
                 banner.innerHTML = `LIVE SORTING: ${winner.toUpperCase()}!`;
                 banner.style.display = 'block';
 
-                // Render current decimal standings to show the tiebreaker working
+                // TRIGGER THE SPEECH SYNTH ENGINE 
+                speakHouse(winner);
+
                 let standingsText = `Current Math: G: ${tally.Gryffindor.toFixed(1)} | R: ${tally.Ravenclaw.toFixed(1)} | H: ${tally.Hufflepuff.toFixed(1)} | S: ${tally.Slytherin.toFixed(1)}`;
                 document.getElementById('standings').innerHTML = standingsText;
                 document.getElementById('breakdown').innerHTML = diagnosisText;
