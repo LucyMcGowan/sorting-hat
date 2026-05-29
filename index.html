@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #121212; color: #ffffff; text-align: center; font-family: sans-serif; padding-top: 15px; }
-        #videoContainer { position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden; }
+        #videoContainer { position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden; display: none; }
         video { display: none; } 
         canvas { width: 100%; height: auto; display: block; }
         .house-banner { font-size: 1.8rem; font-weight: bold; padding: 15px; border-radius: 8px; margin: 15px auto; max-width: 500px; display: none; }
@@ -15,13 +15,18 @@
         .Ravenclaw { background-color: #0E1A40; color: white; }
         .Hufflepuff { background-color: #ECB939; color: black; }
         .Slytherin { background-color: #1A472A; color: white; }
-        #status { font-weight: bold; color: #ecb939; margin-bottom: 15px; }
+        #status { font-weight: bold; color: #ecb939; margin-bottom: 15px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container px-3">
     <h3 class="my-3">⚡ Live Sorting Hat Lens</h3>
+    
+    <button id="startBtn" class="btn btn-warning btn-lg my-4 w-100" style="max-width: 500px;">
+        🧙‍♂️ Summon the Sorting Hat (Start Camera)
+    </button>
+
     <div id="status">⏳ Waking up Video Vision Engine...</div>
 
     <div id="videoContainer">
@@ -38,7 +43,7 @@
     </div>
 </div>
 
-<script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript" onload="initLiveScanner();"></script>
+<script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
 
 <script>
 const video = document.getElementById('videoFeed');
@@ -50,6 +55,23 @@ let streamActive = false;
 // Voice Engine Tracking variables
 let lastAnnouncedHouse = "";
 let speechTimeout = null;
+
+// Event listener to catch the mandatory physical user gesture
+document.getElementById('startBtn').addEventListener('click', function() {
+    // 1. Instantly trigger a silent utterance to trick the mobile browser into unlocking audio
+    if ('speechSynthesis' in window) {
+        let unlockUtterance = new SpeechSynthesisUtterance('');
+        window.speechSynthesis.speak(unlockUtterance);
+    }
+
+    // 2. Adjust visibility of structural components
+    this.style.display = 'none';
+    document.getElementById('status').style.display = 'block';
+    document.getElementById('videoContainer').style.display = 'block';
+
+    // 3. Fire up the camera now that we are trusted
+    initLiveScanner();
+});
 
 async function initLiveScanner() {
     document.getElementById('status').innerText = "🎥 Requesting live video permissions...";
@@ -85,15 +107,12 @@ async function initLiveScanner() {
 
 // Custom Text-To-Speech Function
 function speakHouse(houseName) {
-    // If we already screamed this house, don't scream it again immediately
     if (houseName === lastAnnouncedHouse) return;
     
-    // Stop any current voice lines playing so they don't stack up overlap noise
     window.speechSynthesis.cancel();
     
     let phrase = new SpeechSynthesisUtterance(`Better be... ${houseName}!`);
     
-    // Let's give it a slightly slower, deeper, dramatic Sorting Hat pacing
     phrase.rate = 0.85; 
     phrase.pitch = 0.9; 
     
