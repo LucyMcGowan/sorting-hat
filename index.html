@@ -8,13 +8,13 @@
     <style>
         body { background-color: #121212; color: #ffffff; text-align: center; font-family: sans-serif; padding-top: 15px; }
         #videoContainer { position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden; }
-        video { display: none; } /* Run the raw stream invisibly in the backend wrapper */
+        video { display: none; } 
         canvas { width: 100%; height: auto; display: block; }
         .house-banner { font-size: 1.8rem; font-weight: bold; padding: 15px; border-radius: 8px; margin: 15px auto; max-width: 500px; display: none; }
-        .Gryffindor { background-color: #7F0909; }
-        .Ravenclaw { background-color: #0E1A40; }
+        .Gryffindor { background-color: #7F0909; color: white; }
+        .Ravenclaw { background-color: #0E1A40; color: white; }
         .Hufflepuff { background-color: #ECB939; color: black; }
-        .Slytherin { background-color: #1A472A; }
+        .Slytherin { background-color: #1A472A; color: white; }
         #status { font-weight: bold; color: #ecb939; margin-bottom: 15px; }
     </style>
 </head>
@@ -32,7 +32,8 @@
     <div class="house-banner" id="winnerBanner"></div>
     
     <div class="card bg-dark text-start p-3 my-3 mx-auto" id="detailsCard" style="max-width: 500px; display: none; border: 1px solid #333;">
-        <h6>Live Stream Diagnostics:</h6>
+        <h6>Live Stream Diagnostics & Standings:</h6>
+        <div id="standings" class="mb-3 font-monospace text-warning small"></div>
         <div id="breakdown" class="small font-monospace text-muted"></div>
     </div>
 </div>
@@ -48,16 +49,13 @@ let streamActive = false;
 
 async function initLiveScanner() {
     document.getElementById('status').innerText = "🎥 Requesting live video permissions...";
-    
     try {
-        // Request the rear-facing camera explicitly for mobile devices
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { exact: "environment" } },
             audio: false
         });
         video.srcObject = stream;
     } catch (err) {
-        // Fallback to default webcam if no rear environment camera is present (like on a laptop)
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         video.srcObject = stream;
     }
@@ -68,7 +66,6 @@ async function initLiveScanner() {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             
-            // Allocate permanent WebAssembly memory space blocks for processing frames
             src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
             gray = new cv.Mat();
             thresh = new cv.Mat();
@@ -85,17 +82,14 @@ async function initLiveScanner() {
 function processFrame() {
     if (!streamActive) return;
 
-    // 1. Capture the current frame from video onto the viewport canvas context
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     src.data.set(imageData.data);
 
-    // 2. Clear out noise and isolate edge geometries
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
     cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
     cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2);
 
-    // 3. Find structural contour loops
     cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
     let boxes = [];
@@ -104,7 +98,6 @@ function processFrame() {
         let rect = cv.boundingRect(cnt);
         let aspectRatio = rect.width / rect.height;
 
-        // Filter out shapes that do not share your quiz box dimensional profile
         if (rect.width > 20 && rect.height > 30 && aspectRatio > 0.5 && aspectRatio < 0.95) {
             let roi = thresh.roi(rect);
             let totalPixels = cv.countNonZero(roi);
@@ -115,9 +108,7 @@ function processFrame() {
         }
     }
 
-    // Process calculations if we see a valid layout distribution block
     if (boxes.length >= 5) {
-        // Sort boxes structurally Top-to-Bottom
         boxes.sort((a, b) => a.rect.y - b.rect.y);
         
         let rows = [];
@@ -134,13 +125,13 @@ function processFrame() {
         }
         rows.push(currentRow);
 
-        // Filter and isolate standard 4-choice response structures
         rows = rows.filter(r => r.length >= 2 && r.length <= 4);
         rows.forEach(r => r.sort((a, b) => a.rect.x - b.rect.x));
-        rows = rows.slice(-5); // Track the bottom-most complete blocks
+        rows = rows.slice(-5); 
 
         if (rows.length === 5) {
             const houses = ["Gryffindor", "Ravenclaw", "Hufflepuff", "Slytherin"];
+            const colLetters = ["A", "B", "C", "D"];
             let tally = { Gryffindor: 0, Ravenclaw: 0, Hufflepuff: 0, Slytherin: 0 };
             let diagnosisText = "";
 
@@ -149,7 +140,6 @@ function processFrame() {
                 let chosenIndex = -1;
 
                 row.forEach((box, colIndex) => {
-                    // Render neon target bounding marks back to the visual layout canvas interface
                     ctx.strokeStyle = box.fillRatio > 0.38 ? '#FF0000' : '#00FF00';
                     ctx.lineWidth = box.fillRatio > 0.38 ? 4 : 2;
                     ctx.strokeRect(box.rect.x, box.rect.y, box.rect.width, box.rect.height);
@@ -161,12 +151,15 @@ function processFrame() {
                 });
 
                 if (chosenIndex !== -1 && row.length === 4) {
-                    tally[houses[chosenIndex]]++;
-                    diagnosisText += `Q${rowIndex+1}: Found choice position ${chosenIndex}<br>`;
+                    let house = houses[chosenIndex];
+                    // TIEBREAKER RULE: Upweight the 5th question (index 4) to 1.1 points
+                    let points = (rowIndex === 4) ? 1.1 : 1.0; 
+                    tally[house] += points;
+                    
+                    diagnosisText += `Q${rowIndex+1}: Choice ${colLetters[chosenIndex]} (${house}) [${points} pts]<br>`;
                 }
             });
 
-            // If answers are actively resolving, compute real-time score overlays
             let totalScore = Object.values(tally).reduce((a, b) => a + b, 0);
             if (totalScore > 0) {
                 let winner = Object.keys(tally).reduce((a, b) => tally[a] >= tally[b] ? a : b);
@@ -176,13 +169,15 @@ function processFrame() {
                 banner.innerHTML = `LIVE SORTING: ${winner.toUpperCase()}!`;
                 banner.style.display = 'block';
 
+                // Render current decimal standings to show the tiebreaker working
+                let standingsText = `Current Math: G: ${tally.Gryffindor.toFixed(1)} | R: ${tally.Ravenclaw.toFixed(1)} | H: ${tally.Hufflepuff.toFixed(1)} | S: ${tally.Slytherin.toFixed(1)}`;
+                document.getElementById('standings').innerHTML = standingsText;
                 document.getElementById('breakdown').innerHTML = diagnosisText;
                 document.getElementById('detailsCard').style.display = 'block';
             }
         }
     }
 
-    // Keep the calculation loop running on every single frame refresh natively
     requestAnimationFrame(processFrame);
 }
 </script>
