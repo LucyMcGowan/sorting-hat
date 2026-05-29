@@ -1,0 +1,324 @@
+---
+title: ""
+format:
+  html:
+    self-contained: true
+    page-layout: custom
+---
+
+```{=html}
+<style>
+  @page {
+    size: 8.5in 11in;
+    margin: 0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 8.5in;
+    height: 11in;
+    overflow: hidden;
+    font-family: Georgia, serif;
+    background: white;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  main, .quarto-container, #quarto-content, #quarto-document-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: 8.5in !important;
+  }
+  .page {
+    position: relative;
+    width: 7.5in;
+    height: 10in;
+    margin: 0.5in;
+    background: white;
+  }
+
+  /* ---- Registration marks ---- */
+  .reg { position: absolute; width: 0; height: 0; }
+  .reg-tl { top: 0;    left: 0;  border-top:    28px solid black; border-right:  28px solid transparent; }
+  .reg-tr { top: 0;    right: 0; border-top:    28px solid black; border-left:   28px solid transparent; }
+  .reg-bl { bottom: 0; left: 0;  border-bottom: 28px solid black; border-right:  28px solid transparent; }
+  .reg-br { bottom: 0; right: 0; border-bottom: 28px solid black; border-left:   28px solid transparent; }
+
+  /* ---- Title & subtitle ---- */
+  .title {
+    position: absolute;
+    top: 2%;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 26pt;
+    font-weight: bold;
+    letter-spacing: 2px;
+  }
+  .subtitle {
+    position: absolute;
+    top: 9%;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 10pt;
+    color: #555;
+    font-style: italic;
+  }
+
+  /*
+    LAYOUT DESIGN
+    =============
+    Bubble columns (A/B/C/D) occupy the LEFT side of the safe-area.
+    Question text occupies the RIGHT side.
+
+    Bubble column centres (safe-area %, i.e. % of .page width 7.5in):
+      A: 6%   (x1=2.8%,  x2=9.2%  → centre ~6%)
+      B: 17%  (x1=13.8%, x2=20.2% → centre ~17%)
+      C: 28%  (x1=24.8%, x2=31.2% → centre ~28%)
+      D: 39%  (x1=35.8%, x2=42.2% → centre ~39%)
+
+    Bubble width  = 6.4% of .page width  (≈ 0.48in on 7.5in)
+    Bubble height = 6.6% of .page height (≈ 0.66in on 10in)
+
+    Row centres (safe-area %, i.e. % of .page height 10in):
+      Q1: 27%  (y1=23.7%, y2=30.3%)
+      Q2: 41%  (y1=37.7%, y2=44.3%)
+      Q3: 55%  (y1=51.7%, y2=58.3%)
+      Q4: 69%  (y1=65.7%, y2=72.3%)
+      Q5: 83%  (y1=79.7%, y2=86.3%)
+
+    Question text block: left=46%, right=1%, top = row_centre - 6%
+
+    Absolute page-fraction coords for quiz_functions.R:
+      page_x  = 0.5/8.5 + safe_x_frac * (7.5/8.5)
+      page_y  = 0.5/11  + safe_y_frac * (10/11)
+
+    Col A  safe x1=2.8%  → page_x1 = 0.0588 + 0.028*0.8824  = 0.0835
+           safe x2=9.2%  → page_x2 = 0.0588 + 0.092*0.8824  = 0.1400
+    Col B  safe x1=13.8% → page_x1 = 0.0588 + 0.138*0.8824  = 0.1806
+           safe x2=20.2% → page_x2 = 0.0588 + 0.202*0.8824  = 0.2370
+    Col C  safe x1=24.8% → page_x1 = 0.0588 + 0.248*0.8824  = 0.2777
+           safe x2=31.2% → page_x2 = 0.0588 + 0.312*0.8824  = 0.3341
+    Col D  safe x1=35.8% → page_x1 = 0.0588 + 0.358*0.8824  = 0.3748
+           safe x2=42.2% → page_x2 = 0.0588 + 0.422*0.8824  = 0.4312
+
+    Q1 safe y1=23.7% → page_y1 = 0.0455 + 0.237*0.9091 = 0.2609
+       safe y2=30.3% → page_y2 = 0.0455 + 0.303*0.9091 = 0.3209
+    Q2 safe y1=37.7% → page_y1 = 0.0455 + 0.377*0.9091 = 0.3882
+       safe y2=44.3% → page_y2 = 0.0455 + 0.443*0.9091 = 0.4482
+    Q3 safe y1=51.7% → page_y1 = 0.0455 + 0.517*0.9091 = 0.5155
+       safe y2=58.3% → page_y2 = 0.0455 + 0.583*0.9091 = 0.5755
+    Q4 safe y1=65.7% → page_y1 = 0.0455 + 0.657*0.9091 = 0.6427
+       safe y2=72.3% → page_y2 = 0.0455 + 0.723*0.9091 = 0.7027
+    Q5 safe y1=79.7% → page_y1 = 0.0455 + 0.797*0.9091 = 0.7700
+       safe y2=86.3% → page_y2 = 0.0455 + 0.863*0.9091 = 0.8300
+  */
+
+  /* ---- Column headers ---- */
+  .col-header {
+    position: absolute;
+    top: 14%;
+    width: 10%;
+    text-align: center;
+    font-size: 9pt;
+    font-weight: bold;
+    transform: translateX(-50%);
+    color: #333;
+  }
+  .ch-1 { left: 6%; }
+  .ch-2 { left: 17%; }
+  .ch-3 { left: 28%; }
+  .ch-4 { left: 39%; }
+
+  /* ---- Dividers ---- */
+  .divider {
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    background: #ccc;
+  }
+
+  /* ---- Question text (RIGHT side, left=46%) ---- */
+  .question {
+    position: absolute;
+    left: 46%;
+    right: 1%;
+    font-size: 8pt;
+    color: #111;
+    line-height: 1.5;
+  }
+  .q1 { top: 21%; }
+  .q2 { top: 35%; }
+  .q3 { top: 49%; }
+  .q4 { top: 63%; }
+  .q5 { top: 77%; }
+
+  .q-num { font-weight: bold; font-size: 8.5pt; }
+
+  .answers {
+    margin-top: 3px;
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 1px 4px;
+    padding-left: 4px;
+  }
+  .ans-label { font-weight: bold; white-space: nowrap; }
+  .ans-text   { color: #111; }
+
+  /* ---- Bubbles ---- */
+  .bubble {
+    position: absolute;
+    width:  6.40%;   /* 6.4% of 7.5in ≈ 0.48in */
+    height: 6.60%;   /* 6.6% of 10in  ≈ 0.66in */
+    border: 2.5px solid #222;
+    border-radius: 5px;
+    background: white;
+  }
+
+  /* Column A  (left=2.8%) */
+  .b-a-q1 { left: 2.8%;  top: 23.7%; }
+  .b-a-q2 { left: 2.8%;  top: 37.7%; }
+  .b-a-q3 { left: 2.8%;  top: 51.7%; }
+  .b-a-q4 { left: 2.8%;  top: 65.7%; }
+  .b-a-q5 { left: 2.8%;  top: 79.7%; }
+
+  /* Column B  (left=13.8%) */
+  .b-b-q1 { left: 13.8%; top: 23.7%; }
+  .b-b-q2 { left: 13.8%; top: 37.7%; }
+  .b-b-q3 { left: 13.8%; top: 51.7%; }
+  .b-b-q4 { left: 13.8%; top: 65.7%; }
+  .b-b-q5 { left: 13.8%; top: 79.7%; }
+
+  /* Column C  (left=24.8%) */
+  .b-c-q1 { left: 24.8%; top: 23.7%; }
+  .b-c-q2 { left: 24.8%; top: 37.7%; }
+  .b-c-q3 { left: 24.8%; top: 51.7%; }
+  .b-c-q4 { left: 24.8%; top: 65.7%; }
+  .b-c-q5 { left: 24.8%; top: 79.7%; }
+
+  /* Column D  (left=35.8%) */
+  .b-d-q1 { left: 35.8%; top: 23.7%; }
+  .b-d-q2 { left: 35.8%; top: 37.7%; }
+  .b-d-q3 { left: 35.8%; top: 51.7%; }
+  .b-d-q4 { left: 35.8%; top: 65.7%; }
+  .b-d-q5 { left: 35.8%; top: 79.7%; }
+
+  /* ---- Footer ---- */
+  .footer {
+    position: absolute;
+    bottom: 0.5%;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 7.5pt;
+    color: #aaa;
+  }
+
+  @media print {
+    html, body { width: 8.5in; height: 11in; }
+    #quarto-header, nav, .navbar, footer { display: none !important; }
+  }
+</style>
+
+<div class="page">
+  <!-- Registration marks -->
+  <div class="reg reg-tl"></div>
+  <div class="reg reg-tr"></div>
+  <div class="reg reg-bl"></div>
+  <div class="reg reg-br"></div>
+
+  <!-- Title -->
+  <div class="title">&#9889; Marielle's Sorting Hat Quiz &#9889;</div>
+
+  <!-- Column headers (centred over each bubble column) -->
+  <div class="col-header ch-1">A</div>
+  <div class="col-header ch-2">B</div>
+  <div class="col-header ch-3">C</div>
+  <div class="col-header ch-4">D</div>
+
+  <!-- Dividers -->
+  <div class="divider" style="top: 18%;"></div>
+  <div class="divider" style="top: 32%;"></div>
+  <div class="divider" style="top: 46%;"></div>
+  <div class="divider" style="top: 60%;"></div>
+  <div class="divider" style="top: 74%;"></div>
+  <div class="divider" style="top: 92%;"></div>
+
+  <!-- Q1 -->
+  <div class="question q1">
+    <span class="q-num">1. What type of pet would you choose?</span>
+    <div class="answers">
+      <span class="ans-label">A.</span><span class="ans-text">Toad</span>
+      <span class="ans-label">B.</span><span class="ans-text">Owl</span>
+      <span class="ans-label">C.</span><span class="ans-text">Cat</span>
+      <span class="ans-label">D.</span><span class="ans-text">Snake</span>
+    </div>
+  </div>
+  <div class="bubble b-a-q1"></div>
+  <div class="bubble b-b-q1"></div>
+  <div class="bubble b-c-q1"></div>
+  <div class="bubble b-d-q1"></div>
+
+  <!-- Q2 -->
+  <div class="question q2">
+    <span class="q-num">2. You have a free afternoon, what do you do?</span>
+    <div class="answers">
+      <span class="ans-label">A.</span><span class="ans-text">Go on an adventure</span>
+      <span class="ans-label">B.</span><span class="ans-text">Read a book to learn something new</span>
+      <span class="ans-label">C.</span><span class="ans-text">Spend time with friends and family</span>
+      <span class="ans-label">D.</span><span class="ans-text">Work on a personal goal or plan</span>
+    </div>
+  </div>
+  <div class="bubble b-a-q2"></div>
+  <div class="bubble b-b-q2"></div>
+  <div class="bubble b-c-q2"></div>
+  <div class="bubble b-d-q2"></div>
+
+  <!-- Q3 -->
+  <div class="question q3">
+    <span class="q-num">3. If you got a wand from Ollivander, which would it be?</span>
+    <div class="answers">
+      <span class="ans-label">A.</span><span class="ans-text">An Aspen wand with Phoenix Feather core</span>
+      <span class="ans-label">B.</span><span class="ans-text">A Walnut wand with a Unicorn hair core</span>
+      <span class="ans-label">C.</span><span class="ans-text">An Applewood wand with a Unicorn hair core</span>
+      <span class="ans-label">D.</span><span class="ans-text">An Ebony wand with a Dragon Heatstring core</span>
+    </div>
+  </div>
+  <div class="bubble b-a-q3"></div>
+  <div class="bubble b-b-q3"></div>
+  <div class="bubble b-c-q3"></div>
+  <div class="bubble b-d-q3"></div>
+
+  <!-- Q4 -->
+  <div class="question q4">
+    <span class="q-num">4. You finished your homework, what do you do next?</span>
+    <div class="answers">
+      <span class="ans-label">A.</span><span class="ans-text">Play Wizard Chess</span>
+      <span class="ans-label">B.</span><span class="ans-text">Go to the Library</span>
+      <span class="ans-label">C.</span><span class="ans-text">Go back to your Common Room to hang with friends</span>
+      <span class="ans-label">D.</span><span class="ans-text">Go into the Forbidden Forest</span>
+    </div>
+  </div>
+  <div class="bubble b-a-q4"></div>
+  <div class="bubble b-b-q4"></div>
+  <div class="bubble b-c-q4"></div>
+  <div class="bubble b-d-q4"></div>
+
+  <!-- Q5 -->
+  <div class="question q5">
+    <span class="q-num">5. Which house do you prefer:</span>
+    <div class="answers">
+      <span class="ans-label">A.</span><span class="ans-text">Gryffindor</span>
+      <span class="ans-label">B.</span><span class="ans-text">Ravenclaw</span>
+      <span class="ans-label">C.</span><span class="ans-text">Hufflepuff</span>
+      <span class="ans-label">D.</span><span class="ans-text">Slytherin</span>
+    </div>
+  </div>
+  <div class="bubble b-a-q5"></div>
+  <div class="bubble b-b-q5"></div>
+  <div class="bubble b-c-q5"></div>
+  <div class="bubble b-d-q5"></div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Fill each box completely with a dark marker &nbsp;|&nbsp; One answer per question
+  </div>
+</div>
+```
