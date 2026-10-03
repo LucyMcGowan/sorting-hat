@@ -132,9 +132,49 @@ async function initLiveScanner() {
     });
 }
 
+async function restartCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: "environment" } },
+            audio: false
+        });
+        video.srcObject = stream;
+        video.play();
+
+        video.addEventListener('canplay', () => {
+            if (!streamActive) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+                gray = new cv.Mat();
+                thresh = new cv.Mat();
+                contours = new cv.MatVector();
+                hierarchy = new cv.Mat();
+
+                streamActive = true;
+                document.getElementById('status').innerText = "🔮 Ready for the next student's sheet...";
+                requestAnimationFrame(processFrame);
+            }
+        }, { once: true });
+
+    } catch (err) {
+        console.error("Could not restart camera:", err);
+        document.getElementById('status').innerText = "⚠️ Camera needs to be restarted.";
+    }
+}
+
 function speakHouse(houseName) {
     if (houseName === lastAnnouncedHouse) return;
-    
+
+    // Stop the camera while speech synthesis is active.
+    if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+    }
+
+    streamActive = false;
+
     window.speechSynthesis.cancel();
     
     let randomIntro = introPhrases[Math.floor(Math.random() * introPhrases.length)];
@@ -152,9 +192,14 @@ function speakHouse(houseName) {
     
     phrase.rate = 0.82; 
     phrase.pitch = 0.85; 
+
+    lastAnnouncedHouse = houseName;
+
+    phrase.onend = function() {
+        restartCamera();
+    };
     
     window.speechSynthesis.speak(phrase);
-    lastAnnouncedHouse = houseName;
 }
 
 function processFrame() {
@@ -193,7 +238,7 @@ function processFrame() {
         
         let rows = [];
         let currentRow = [boxes[0]];
-        let yThreshold = 25; // Slightly bumped up to handle angled mobile shots better
+        let yThreshold = 25;
 
         for (let i = 1; i < boxes.length; i++) {
             if (Math.abs(boxes[i].rect.y - currentRow[0].rect.y) < yThreshold) {
@@ -207,7 +252,7 @@ function processFrame() {
 
         rows = rows.filter(r => r.length >= 2 && r.length <= 4);
         rows.forEach(r => r.sort((a, b) => a.rect.x - b.rect.x));
-        rows = rows.slice(0, 5); // Take the first 5 valid structured rows from the top down
+        rows = rows.slice(0, 5);
 
         if (rows.length === 5) {
             validSheetFound = true; 
@@ -222,18 +267,15 @@ function processFrame() {
                 let maxFill = 0;
                 let chosenIndex = -1;
                 
-                // 1. Find the highest fill ratio inside this specific row context
                 row.forEach((box) => {
                     if (box.fillRatio > maxFill) {
                         maxFill = box.fillRatio;
                     }
                 });
 
-                // 2. Compute a dynamic, relative threshold based on the row's own max fill
                 const rowThreshold = Math.max(0.32, maxFill * 0.85);
 
                 row.forEach((box, colIndex) => {
-                    // Check if box meets the relative threshold and has a baseline presence
                     let isFilled = box.fillRatio >= rowThreshold && box.fillRatio > 0.30;
 
                     ctx.strokeStyle = isFilled ? '#FF0000' : '#00FF00';
